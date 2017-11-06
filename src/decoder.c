@@ -82,6 +82,8 @@ struct arib_decoder_t
     int (*handle_g2)(arib_decoder_t *, int);
     int (*handle_g3)(arib_decoder_t *, int);
     int kanji_ku;
+    bool b_halfwidth_space;
+    bool b_use_brazil_codesets;
 
     int i_control_time;
 
@@ -471,6 +473,26 @@ static int decoder_handle_alnum( arib_decoder_t *decoder, int c )
     return decoder_push( decoder, uc );
 }
 
+static int decoder_handle_brazil_alnum( arib_decoder_t *decoder, int c )
+{
+    // brazil alnum just uses standard ASCII and is not fullwidth
+    return decoder_push( decoder, c + 0x21 );
+}
+
+static int decoder_handle_brazil_latin_extension( arib_decoder_t *decoder, int c )
+{
+    unsigned int uc;
+    uc = decoder_brazil_latin_extension_table[c];
+    return decoder_push( decoder, uc );
+}
+
+static int decoder_handle_brazil_special( arib_decoder_t *decoder, int c )
+{
+    unsigned int uc;
+    uc = decoder_brazil_special_table[c];
+    return decoder_push( decoder, uc );
+}
+
 static int decoder_handle_hiragana( arib_decoder_t *decoder, int c )
 {
     unsigned int uc;
@@ -519,7 +541,12 @@ static int decoder_handle_gl( arib_decoder_t *decoder, int c )
 
     if( c == 0x20 || c == 0x7f )
     {
-        c = 0x3000;
+        if ( decoder->b_halfwidth_space )
+        {
+            c = 0x20;
+        } else {
+            c = 0x3000;
+        }
         return decoder_push( decoder, c );
     }
 
@@ -590,7 +617,11 @@ static int decoder_handle_esc( arib_decoder_t *decoder )
                 return 1;
             case 0x36:
             case 0x4a:
-                *handle = decoder_handle_alnum;
+                if (decoder->b_use_brazil_codesets) {
+                    *handle = decoder_handle_brazil_alnum;
+                } else {
+                    *handle = decoder_handle_alnum;
+                }
                 return 1;
             case 0x40:
             case 0x41:
@@ -604,7 +635,19 @@ static int decoder_handle_esc( arib_decoder_t *decoder )
             case 0x49:
             //case 0x4a:
             case 0x4b:
+                if (decoder->b_use_brazil_codesets) {
+                    *handle = decoder_handle_brazil_latin_extension;
+                } else {
+                    *handle = decoder_handle_drcs;
+                }
+                return 1;
             case 0x4c:
+                if (decoder->b_use_brazil_codesets) {
+                    *handle = decoder_handle_brazil_special;
+                } else {
+                    *handle = decoder_handle_drcs;
+                }
+                return 1;
             case 0x4d:
             case 0x4e:
             case 0x4f:
@@ -1399,6 +1442,8 @@ void arib_initialize_decoder( arib_decoder_t* decoder )
     decoder->handle_g2 = decoder_handle_hiragana;
     decoder->handle_g3 = decoder_handle_katakana;
     decoder->kanji_ku = -1;
+    decoder->b_halfwidth_space = false;
+    decoder->b_use_brazil_codesets = false;
 
     decoder->i_control_time = 0;
 
@@ -1495,6 +1540,37 @@ void arib_initialize_decoder_c_profile( arib_decoder_t* decoder )
     arib_initialize_decoder_size_related( decoder,
             320, 180, 300, 160, 0, 0,
             18, 18, 2, 12);
+}
+
+void arib_initialize_decoder_brazil( arib_decoder_t *decoder )
+{
+    arib_initialize_decoder( decoder );
+
+    decoder->b_halfwidth_space = true;
+    decoder->b_use_brazil_codesets = true;
+
+    decoder->handle_g0 = decoder_handle_brazil_alnum;
+    decoder->handle_g1 = decoder_handle_brazil_alnum;
+    decoder->handle_g2 = decoder_handle_brazil_latin_extension;
+    decoder->handle_g3 = decoder_handle_brazil_special;
+}
+
+void arib_initialize_decoder_brazil_a_profile( arib_decoder_t* decoder ) {
+    arib_initialize_decoder_brazil( decoder );
+
+    // character size is 1/2 x 1 (middle size) (= MSZ)
+    arib_initialize_decoder_size_related( decoder,
+                960, 540, 620, 480, 170, 30,
+                18, 36, 2, 24);
+}
+
+void arib_initialize_decoder_brazil_c_profile( arib_decoder_t* decoder ) {
+    arib_initialize_decoder_brazil( decoder );
+
+    // character size is 1/2 x 1 (middle size) (= MSZ)
+    arib_initialize_decoder_size_related( decoder,
+            320, 180, 300, 160, 0, 0,
+            9, 18, 1, 12);
 }
 
 void arib_finalize_decoder( arib_decoder_t* decoder )

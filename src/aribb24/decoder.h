@@ -66,6 +66,12 @@ ARIB_API void arib_initialize_decoder_a_profile( arib_decoder_t* decoder );
 
 ARIB_API void arib_initialize_decoder_c_profile( arib_decoder_t* decoder );
 
+ARIB_API void arib_initialize_decoder_brazil( arib_decoder_t* decoder );
+
+ARIB_API void arib_initialize_decoder_brazil_a_profile( arib_decoder_t* decoder );
+
+ARIB_API void arib_initialize_decoder_brazil_c_profile( arib_decoder_t* decoder );
+
 ARIB_API void arib_finalize_decoder( arib_decoder_t* decoder );
 
 ARIB_API size_t arib_decode_buffer( arib_decoder_t* decoder,
